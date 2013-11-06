@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" width="__MAP_WIDTH__" height="__MAP_HEIGHT__" tilewidth="__TILE_WIDTH__" tileheight="__TILE_HEIGHT__">
+ <tileset firstgid="1" name="__TILE_SET_NAME__" tilewidth="__TILE_WIDTH__" tileheight="__TILE_HEIGHT__">
+  <image source="__IMAGE_NAME__" width="__IMAGE_WIDTH__" height="__IMAGE_HEIGHT__"/>
+ </tileset>
+ <layer name="backgroud" width="__MAP_WIDTH__" height="__MAP_HEIGHT__">
+  <properties>
+   <property name="cc_vertexz" value="-1010"/>
+  </properties>
+  <data>
+   __TILE_ID__
+  </data>
+ </layer>
+</map>
