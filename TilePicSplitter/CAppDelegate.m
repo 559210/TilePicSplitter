@@ -25,6 +25,9 @@
 #define UD_INPUT_PIC        "INPUT_PIC"
 #define UD_TEXTURE_NAME     "TEXTURE_NAME"
 #define UD_TMX_NAME         "TMX_NAME"
+#define UD_OLD_TEXTURE_PATH "OLD_TEXTURE_PATH"
+#define UD_GRID_WIDTH       "GRID_WIDTH"
+#define UD_GRID_HEIGHT      "GRID_HEIGHT"
 
 #import "CAppDelegate.h"
 #import "CMyImage.h"
@@ -35,13 +38,49 @@
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
     // Insert code here to initialize your application
-    
+    NSString* str;
     NSUserDefaults* ud = [NSUserDefaults standardUserDefaults];
     
-    outputPath.stringValue = [ud objectForKey:@UD_OUTPUT_PATH];
-    inputPicFile.stringValue = [ud objectForKey:@UD_INPUT_PIC];
-    outTextureName.stringValue = [ud objectForKey:@UD_TEXTURE_NAME];
-    outTmxName.stringValue = [ud objectForKey:@UD_TMX_NAME];
+    str = [ud objectForKey:@UD_OUTPUT_PATH];
+    if (nil != str) outputPath.stringValue = str;
+    str = [ud objectForKey:@UD_INPUT_PIC];
+    if (nil != str) inputPicFile.stringValue = str;
+    str = [ud objectForKey:@UD_TEXTURE_NAME];
+    if (nil != str) outTextureName.stringValue = str;
+    str = [ud objectForKey:@UD_TMX_NAME];
+    if (nil != str) outTmxName.stringValue = str;
+    
+    str = [ud objectForKey:@UD_OLD_TEXTURE_PATH];
+    if (nil != str)
+    {
+        self.existTexture = [[NSImage alloc] initWithContentsOfFile:str];
+        if (self.existTexture != nil)
+        {
+            [imageView setImage:self.existTexture];
+        }
+    }
+    
+    str = [ud objectForKey:@UD_GRID_WIDTH];
+    if (nil != str)
+    {
+        gridWidth.stringValue = str;
+    }
+    else
+    {
+        gridWidth.intValue = TILE_WIDTH;
+    }
+    
+    str = [ud objectForKey:@UD_GRID_HEIGHT];
+    if (nil != str)
+    {
+        gridHeight.stringValue = str;
+    }
+    else
+    {
+        gridHeight.intValue = TILE_HEIGHT;
+    }
+    
+    self.altas = [NSMutableArray array];
 }
 
 
@@ -54,6 +93,14 @@
 
 -(BOOL)slipPic
 {
+    int w = gridWidth.intValue;
+    int h = gridWidth.intValue;
+    
+    if (![self loadOldTexture:w H:h])
+    {
+        return NO;
+    }
+    
     NSImage* img = [[NSImage alloc] initWithContentsOfFile:inputPicFile.stringValue];
     if (!img) return NO;
     
@@ -63,8 +110,7 @@
     NSBitmapImageRep* rep = [NSBitmapImageRep imageRepWithData:tiffData];
     if (!rep) return NO;
     
-    int w = TILE_WIDTH;
-    int h = TILE_HEIGHT;
+
     
     int wCount = (int)rep.pixelsWide / w;
     int hCount = (int)rep.pixelsHigh / h;
@@ -245,6 +291,8 @@
     if (NSFileHandlingPanelOKButton == [panel runModal])
     {
         inputPicFile.stringValue = [panel.URL relativePath];
+        NSUserDefaults* ud = [NSUserDefaults standardUserDefaults];
+        [ud setObject:inputPicFile.stringValue forKey:@UD_INPUT_PIC];
     }
 }
 
@@ -272,6 +320,9 @@
         {
             outputPath.stringValue = [outputPath.stringValue stringByAppendingString:@"/"];
         }
+        
+        NSUserDefaults* ud = [NSUserDefaults standardUserDefaults];
+        [ud setObject:outputPath.stringValue forKey:@UD_OUTPUT_PATH];
     }
 }
 
@@ -279,6 +330,16 @@
 
 - (IBAction)onStart:(id)sender
 {
+    if (gridWidth.intValue <= 0 ||
+        gridHeight.intValue <= 0)
+    {
+        NSAlert *alert = [[NSAlert alloc] init];
+        [alert setMessageText:@"GridWidth and GridHeight must be set!"];
+        [alert addButtonWithTitle:@"OK"];
+        [alert runModal];
+        return;
+    }
+    
     if ([inputPicFile.stringValue length] == 0 ||
         [outputPath.stringValue length] == 0)
     {
@@ -334,6 +395,8 @@
     [ud setObject:inputPicFile.stringValue forKey:@UD_INPUT_PIC];
     [ud setObject:outTextureName.stringValue forKey:@UD_TEXTURE_NAME];
     [ud setObject:outTmxName.stringValue forKey:@UD_TMX_NAME];
+    [ud setObject:gridWidth forKey:@UD_GRID_WIDTH];
+    [ud setObject:gridHeight forKey:@UD_GRID_HEIGHT];
     
     if ([self slipPic])
     {
@@ -352,5 +415,100 @@
 }
 
 
+
+-(IBAction)onLoadExistTexture:(id)sender
+{
+    NSOpenPanel* panel = [NSOpenPanel openPanel];
+    [panel setCanChooseFiles:YES];
+    [panel setCanChooseDirectories:NO];
+    [panel setAllowedFileTypes:[NSArray arrayWithObjects:@"png", nil]];
+    if ([outputPath.stringValue length] > 0)
+    {
+        NSURL* url = [NSURL fileURLWithPath:outputPath.stringValue isDirectory:YES];
+        if (url)
+        {
+            [panel setDirectoryURL:url];
+        }
+    }
+    if (NSFileHandlingPanelOKButton == [panel runModal])
+    {
+        self.existTexture = [[NSImage alloc] initWithContentsOfURL:panel.URL];
+        if (!self.existTexture)
+        {
+            NSAlert *alert = [[NSAlert alloc] init];
+            [alert setMessageText:@"Can't load the texture!"];
+            [alert addButtonWithTitle:@"OK"];
+            [alert runModal];
+            return;
+        }
+        
+        [imageView setImage:self.existTexture];
+        
+        NSString* str = [panel.URL relativePath];
+        NSArray* pc = [str pathComponents];
+        NSString* ext = [str pathExtension];
+        str = [pc objectAtIndex:[pc count] - 1];
+        if ([ext length] > 0)
+        {
+            outTextureName.stringValue = [str substringToIndex:[str length] - [ext length] - 1];
+        }
+        
+        NSUserDefaults* ud = [NSUserDefaults standardUserDefaults];
+        [ud setObject:[panel.URL relativePath] forKey:@UD_OLD_TEXTURE_PATH];
+        [ud setObject:outTextureName.stringValue forKey:@UD_TEXTURE_NAME];
+    }
+}
+
+
+-(BOOL)loadOldTexture : (int)w H:(int)h
+{
+    if (_existTexture == nil)
+    {
+        return YES;
+    }
+    [_altas removeAllObjects];
+    NSData  * tiffData = [_existTexture TIFFRepresentation];
+    if (!tiffData) return NO;
+    
+    NSBitmapImageRep* rep = [NSBitmapImageRep imageRepWithData:tiffData];
+    if (!rep) return NO;
+    
+    int wCount = (int)rep.pixelsWide / w;
+    int hCount = (int)rep.pixelsHigh / h;
+    if (wCount < 0 || hCount < 0) return NO;
+
+    
+    int x, y;
+    for (y = 0; y < hCount; ++y)
+    {
+        for (x = 0; x < wCount; ++x)
+        {
+            @autoreleasepool {
+                NSImage* outImg = [[NSImage alloc] initWithSize:NSMakeSize(w, h)];
+                if (!outImg) return NO;
+                [outImg lockFocus];
+                [_existTexture drawInRect:NSMakeRect(0, 0, w, h) fromRect:NSMakeRect(x * w, rep.pixelsHigh - (y + 1) * h, w, h) operation:NSCompositeCopy fraction:1.f];
+                [outImg unlockFocus];
+                
+                CMyImage* mi = [[CMyImage alloc] initWithNSImage:outImg];
+                
+                [_altas addObject:mi];
+            }
+        }
+    }
+
+    return YES;
+}
+
+
+-(IBAction)onClearExistTexture:(id)sender
+{
+    NSUserDefaults* ud = [NSUserDefaults standardUserDefaults];
+    [ud removeObjectForKey:@UD_OLD_TEXTURE_PATH];
+    
+    [imageView setImage:nil];
+    self.existTexture = nil;
+
+}
 
 @end

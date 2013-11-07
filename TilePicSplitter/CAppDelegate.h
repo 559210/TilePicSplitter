@@ -17,8 +17,14 @@
     
     IBOutlet NSTextField* outTextureName;
     IBOutlet NSTextField* outTmxName;
+
+    IBOutlet NSTextField* gridWidth;
+    IBOutlet NSTextField* gridHeight;
 }
 
 @property (assign) IBOutlet NSWindow *window;
+
+@property (retain) NSImage* existTexture;
+@property (retain) NSMutableArray* altas;
 
 @end
